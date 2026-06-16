@@ -166,11 +166,18 @@ const updateTicket = async (req, res) => {
                 [title, description, categoryID, priorityID, id]
             );
         } else {
-            // Admin, Manager, and IT Support Agent can update status and assignment
+            const previousAgentID = ticket.AssignedToID;
             await db.query(
                 'UPDATE Ticket SET StatusID=?, AssignedToID=?, UpdatedAt=NOW() WHERE ID=?',
                 [statusID, assignedToID, id]
             );
+
+            if (previousAgentID && previousAgentID !== parseInt(assignedToID)) {
+                await db.query(
+                    'INSERT INTO ActivityLog (Action, UserID, TicketID) VALUES (?, ?, ?)',
+                    [`Ticket reassigned from agent ID ${previousAgentID} to agent ID ${assignedToID}`, userID, id]
+                );
+            }
         }
 
         // Log the update action

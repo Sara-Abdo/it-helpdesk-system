@@ -5,6 +5,7 @@ require('dotenv').config();
 const authRoutes = require('./src/routes/authRoutes');
 const ticketRoutes = require('./src/routes/ticketRoutes');
 const userRoutes = require('./src/routes/userRoutes');
+const workLogRoutes = require('./src/routes/workLogRoutes');
 
 const app = express();
 
@@ -14,6 +15,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/worklogs', workLogRoutes);
 
 app.get('/', (req, res) => {
     res.json({ message: 'IT HelpDesk API is running' });

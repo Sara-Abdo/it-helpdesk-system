@@ -70,6 +70,7 @@ const getUserWorkload = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
+
 const getRoles = async (req, res) => {
     try {
         const [roles] = await db.query('SELECT * FROM Role');
@@ -80,4 +81,73 @@ const getRoles = async (req, res) => {
     }
 };
 
-module.exports = { getAllUsers, createUser, getUserWorkload, getRoles };
+const deactivateUser = async (req, res) => {
+    const { role } = req.user;
+    if (role !== 'Admin') {
+        return res.status(403).json({ message: 'Only admins can deactivate users' });
+    }
+    const { id } = req.params;
+    try {
+        await db.query('UPDATE `User` SET IsActive = 0 WHERE ID = ?', [id]);
+        res.json({ message: 'User deactivated successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+const deleteUser = async (req, res) => {
+    const { role } = req.user;
+    if (role !== 'Admin') {
+        return res.status(403).json({ message: 'Only admins can delete users' });
+    }
+    const { id } = req.params;
+    try {
+        const [tickets] = await db.query('SELECT ID FROM Ticket WHERE CreatedByID = ? OR AssignedToID = ?', [id, id]);
+        const [logs] = await db.query('SELECT ID FROM ActivityLog WHERE UserID = ?', [id]);
+
+        if (tickets.length > 0 || logs.length > 0) {
+            return res.status(400).json({ message: 'Cannot delete user with existing tickets or activity. Deactivate instead.' });
+        }
+
+        await db.query('DELETE FROM `User` WHERE ID = ?', [id]);
+        res.json({ message: 'User deleted successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+const getDashboardStats = async (req, res) => {
+    const { role, id } = req.user;
+    try {
+        let stats = {};
+
+        if (role === 'Admin' || role === 'Manager') {
+            const [[open]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE StatusID = 1');
+            const [[inProgress]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE StatusID = 2');
+            const [[resolved]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE StatusID = 4');
+            const [[total]] = await db.query('SELECT COUNT(*) as count FROM Ticket');
+            stats = { open: open.count, inProgress: inProgress.count, resolved: resolved.count, total: total.count };
+        } else if (role === 'IT Support Agent') {
+            const [[open]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE AssignedToID = ? AND StatusID = 1', [id]);
+            const [[inProgress]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE AssignedToID = ? AND StatusID = 2', [id]);
+            const [[resolved]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE AssignedToID = ? AND StatusID = 4', [id]);
+            const [[total]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE AssignedToID = ?', [id]);
+            stats = { open: open.count, inProgress: inProgress.count, resolved: resolved.count, total: total.count };
+        } else {
+            const [[open]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE CreatedByID = ? AND StatusID = 1', [id]);
+            const [[inProgress]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE CreatedByID = ? AND StatusID = 2', [id]);
+            const [[resolved]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE CreatedByID = ? AND StatusID = 4', [id]);
+            const [[total]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE CreatedByID = ?', [id]);
+            stats = { open: open.count, inProgress: inProgress.count, resolved: resolved.count, total: total.count };
+        }
+
+        res.json(stats);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+module.exports = { getAllUsers, createUser, getUserWorkload, getRoles, deactivateUser, deleteUser, getDashboardStats };

@@ -46,6 +46,30 @@ export default function ManageUsers() {
     }
   };
 
+  const handleDeactivate = async (id) => {
+    if (!window.confirm("Deactivate this user?")) return;
+    try {
+      await axios.put(`http://localhost:5000/api/users/${id}/deactivate`, {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchUsers();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to deactivate user");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this user? This cannot be undone.")) return;
+    try {
+      await axios.delete(`http://localhost:5000/api/users/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchUsers();
+    } catch (err) {
+      alert(err.response?.data?.message || "Cannot delete this user. Deactivate instead.");
+    }
+  };
+
   return (
     <div className="p-6">
       <h2 className="text-xl font-bold mb-6">Manage Users</h2>
@@ -116,6 +140,7 @@ export default function ManageUsers() {
               <th className="px-4 py-3 text-left">Role</th>
               <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-left">Created</th>
+              {user.role === "Admin" && <th className="px-4 py-3 text-left">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -130,6 +155,18 @@ export default function ManageUsers() {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-gray-400">{new Date(u.CreatedAt).toLocaleDateString()}</td>
+                {user.role === "Admin" && (
+                  <td className="px-4 py-3 flex gap-2">
+                    {u.IsActive ? (
+                      <button onClick={() => handleDeactivate(u.ID)} className="text-yellow-600 hover:underline text-xs">
+                        Deactivate
+                      </button>
+                    ) : null}
+                    <button onClick={() => handleDelete(u.ID)} className="text-red-500 hover:underline text-xs">
+                      Delete
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

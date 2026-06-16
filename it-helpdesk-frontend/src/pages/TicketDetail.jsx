@@ -25,20 +25,21 @@ export default function TicketDetail() {
 
   const [ticket, setTicket] = useState(null);
   const [history, setHistory] = useState([]);
+  const [workLogs, setWorkLogs] = useState([]);
   const [comment, setComment] = useState("");
   const [agents, setAgents] = useState([]);
-  const [statuses, setStatuses] = useState([]);
   const [assignedTo, setAssignedTo] = useState("");
   const [statusID, setStatusID] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [workLog, setWorkLog] = useState({ startTime: "", endTime: "", notes: "" });
 
   useEffect(() => {
     fetchTicket();
     fetchHistory();
+    fetchWorkLogs();
     if (user.role === "Admin" || user.role === "Manager") {
       fetchAgents();
-      fetchStatuses();
     }
   }, []);
 
@@ -58,16 +59,16 @@ export default function TicketDetail() {
     }).then((res) => setHistory(res.data));
   };
 
+  const fetchWorkLogs = () => {
+    axios.get(`http://localhost:5000/api/worklogs/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((res) => setWorkLogs(res.data));
+  };
+
   const fetchAgents = () => {
     axios.get("http://localhost:5000/api/users/workload", {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setAgents(res.data));
-  };
-
-  const fetchStatuses = () => {
-    axios.get("http://localhost:5000/api/tickets/meta", {
-      headers: { Authorization: `Bearer ${token}` },
-    }).then((res) => setStatuses(res.data.statuses || []));
   };
 
   const handleAddComment = async () => {
@@ -102,9 +103,30 @@ export default function TicketDetail() {
     }
   };
 
+  const handleLogWork = async () => {
+    if (!workLog.startTime || !workLog.endTime) {
+      setError("Start and end time are required");
+      return;
+    }
+    try {
+      const res = await axios.post(`http://localhost:5000/api/worklogs/${id}`,
+        workLog,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setSuccess(`Work logged: ${res.data.duration} minutes`);
+      setWorkLog({ startTime: "", endTime: "", notes: "" });
+      fetchWorkLogs();
+      fetchHistory();
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to log work");
+    }
+  };
+
   if (!ticket) return <div className="p-6">Loading...</div>;
 
   const isClosed = ticket.StatusID === 5;
+  const isAssignedAgent = user.role === "IT Support Agent" && ticket.AssignedToID === user.id;
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -127,13 +149,13 @@ export default function TicketDetail() {
             </span>
           </div>
         </div>
-
         <p className="text-gray-600 mb-4">{ticket.Description}</p>
-
         <div className="grid grid-cols-3 gap-4 text-sm text-gray-500">
           <div><span className="font-medium">Category:</span> {ticket.CategoryName}</div>
           <div><span className="font-medium">Created by:</span> {ticket.CreatedByName}</div>
           <div><span className="font-medium">Assigned to:</span> {ticket.AssignedToName || "Unassigned"}</div>
+          <div><span className="font-medium">Created:</span> {new Date(ticket.CreatedAt).toLocaleString()}</div>
+          <div><span className="font-medium">Last updated:</span> {new Date(ticket.UpdatedAt).toLocaleString()}</div>
         </div>
       </div>
 
@@ -177,6 +199,73 @@ export default function TicketDetail() {
         </div>
       )}
 
+      {isAssignedAgent && !isClosed && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h3 className="font-bold mb-4">Log Work Time</h3>
+          <div className="grid grid-cols-2 gap-4 mb-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Start Time</label>
+              <input
+                type="datetime-local"
+                className="w-full border border-gray-300 rounded px-3 py-2"
+                value={workLog.startTime}
+                onChange={(e) => setWorkLog({ ...workLog, startTime: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">End Time</label>
+              <input
+                type="datetime-local"
+                className="w-full border border-gray-300 rounded px-3 py-2"
+                value={workLog.endTime}
+                onChange={(e) => setWorkLog({ ...workLog, endTime: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="mb-3">
+            <label className="block text-sm font-medium mb-1">Notes (optional)</label>
+            <input
+              type="text"
+              className="w-full border border-gray-300 rounded px-3 py-2"
+              placeholder="What did you work on?"
+              value={workLog.notes}
+              onChange={(e) => setWorkLog({ ...workLog, notes: e.target.value })}
+            />
+          </div>
+          <button onClick={handleLogWork} className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800">
+            Log Work
+          </button>
+        </div>
+      )}
+
+      {workLogs.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h3 className="font-bold mb-4">Work Log</h3>
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+              <tr>
+                <th className="px-3 py-2 text-left">Agent</th>
+                <th className="px-3 py-2 text-left">Start</th>
+                <th className="px-3 py-2 text-left">End</th>
+                <th className="px-3 py-2 text-left">Duration</th>
+                <th className="px-3 py-2 text-left">Notes</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {workLogs.map((w, i) => (
+                <tr key={i}>
+                  <td className="px-3 py-2">{w.UserName}</td>
+                  <td className="px-3 py-2">{new Date(w.StartTime).toLocaleString()}</td>
+                  <td className="px-3 py-2">{new Date(w.EndTime).toLocaleString()}</td>
+                  <td className="px-3 py-2">{w.Duration} min</td>
+                  <td className="px-3 py-2">{w.Notes || "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h3 className="font-bold mb-4">Comments</h3>
         <div className="space-y-3 mb-4 max-h-64 overflow-y-auto">
@@ -188,6 +277,7 @@ export default function TicketDetail() {
                 <div className={`max-w-xs px-4 py-2 rounded-lg text-sm ${c.UserID === user.id ? "bg-black text-white" : "bg-gray-100 text-gray-800"}`}>
                   <p className="font-medium text-xs mb-1">{c.UserName}</p>
                   <p>{c.Content}</p>
+                  <p className="text-xs mt-1 opacity-60">{new Date(c.CreatedAt).toLocaleString()}</p>
                 </div>
               </div>
             ))
@@ -213,19 +303,23 @@ export default function TicketDetail() {
 
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="font-bold mb-4">Ticket History</h3>
-        <div className="space-y-2">
-          {history.length === 0 ? (
-            <p className="text-gray-400 text-sm">No history yet.</p>
-          ) : (
-            history.map((h, i) => (
-              <div key={i} className="flex items-center gap-3 text-sm text-gray-600">
-                <span className="w-2 h-2 rounded-full bg-black inline-block"></span>
-                <span>{h.Action}</span>
-                <span className="text-gray-400">by {h.UserName}</span>
-                <span className="text-gray-400 ml-auto">{new Date(h.Timestamp).toLocaleString()}</span>
-              </div>
-            ))
-          )}
+        <div className="relative">
+          <div className="absolute left-2 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+          <div className="space-y-4">
+            {history.length === 0 ? (
+              <p className="text-gray-400 text-sm">No history yet.</p>
+            ) : (
+              history.map((h, i) => (
+                <div key={i} className="flex items-start gap-4 pl-6 relative">
+                  <div className="absolute left-0 w-4 h-4 rounded-full bg-black border-2 border-white"></div>
+                  <div>
+                    <p className="text-sm font-medium">{h.Action}</p>
+                    <p className="text-xs text-gray-400">by {h.UserName} — {new Date(h.Timestamp).toLocaleString()}</p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
