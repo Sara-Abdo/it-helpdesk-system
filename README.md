@@ -35,12 +35,12 @@ Full Stack Web Development Internship Project — Integrated Digital Systems
 - Role-based dashboard stats (each role sees their own data)
 
 ## Week 5 Deliverables
-- Backend access control hardening: tickets, history, comments, and work logs now enforce per-role ownership (Employees see only their own tickets, Agents see only tickets assigned to them) instead of relying on the frontend alone
-- Activity log redesigned to record meaningful manual-style entries (status changes, reassignments, work notes) instead of auto-generated noise on every action
-- API responses trimmed to explicit column selection instead of `SELECT *`, reducing payload size and avoiding exposure of unnecessary fields
-- File attachments: upload, view, and remove files per ticket (backed by Multer on the server, stored on disk with metadata in MySQL)
-- Dashboard analytics: ticket breakdown by status (pie chart) and priority (bar chart) using Recharts, plus a live Recent Tickets table
-- Notification system: users are notified on ticket reassignment, status changes, and new comments, with an unread-count badge and a dedicated Notifications page
+- Role-based access control on tickets, history, comments, and work logs
+- Activity log redesigned to manual-style entries instead of auto-generated noise
+- API responses trimmed to explicit columns instead of SELECT *
+- File attachments (upload, view, remove per ticket)
+- Dashboard analytics with charts (status and priority breakdown) and recent tickets
+- Notification system with unread badge and dedicated notifications page
 
 ## Tech Stack
 - Frontend: React.js, Tailwind CSS, Recharts
