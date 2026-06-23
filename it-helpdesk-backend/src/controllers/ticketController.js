@@ -1,11 +1,12 @@
 const db = require('../config/db');
 
-// -----------------------------------------------
-// Create a new ticket
-// Only authenticated users can create tickets
-// Status is set to 1 (Open) by default
-// A unique reference number is generated automatically
-// -----------------------------------------------
+const canAccessTicket = (ticket, user) => {
+    if (user.role === 'Admin' || user.role === 'Manager') return true;
+    if (user.role === 'Employee') return ticket.CreatedByID === user.id;
+    if (user.role === 'IT Support Agent') return ticket.AssignedToID === user.id;
+    return false;
+};
+
 const createTicket = async (req, res) => {
     const { title, description, categoryID, priorityID } = req.body;
     const createdByID = req.user.id;
@@ -15,17 +16,14 @@ const createTicket = async (req, res) => {
     }
 
     try {
-        // Generate a unique reference number using timestamp
         const refNumber = 'TK-' + Date.now();
 
-        // Insert the new ticket into the database
         const [result] = await db.query(
             `INSERT INTO Ticket (ReferenceNumber, Title, Description, StatusID, PriorityID, CategoryID, CreatedByID)
              VALUES (?, ?, ?, 1, ?, ?, ?)`,
             [refNumber, title, description, priorityID, categoryID, createdByID]
         );
 
-        // Log this action in the ActivityLog table
         await db.query(
             `INSERT INTO ActivityLog (Action, UserID, TicketID) VALUES (?, ?, ?)`,
             ['Ticket created', createdByID, result.insertId]
@@ -38,22 +36,16 @@ const createTicket = async (req, res) => {
     }
 };
 
-// -----------------------------------------------
-// Get all tickets
-// Role-based filtering:
-// - Admin/Manager: sees all tickets
-// - Employee: sees only tickets they created
-// - IT Support Agent: sees only tickets assigned to them
-// -----------------------------------------------
 const getAllTickets = async (req, res) => {
     const { role, id } = req.user;
 
     try {
-        // Base query to get ticket details with related table data
         let query = `
-            SELECT t.*, 
-                s.Name as StatusName, 
-                p.Name as PriorityName, 
+            SELECT
+                t.ID, t.ReferenceNumber, t.Title, t.StatusID, t.PriorityID, t.CategoryID,
+                t.CreatedByID, t.AssignedToID, t.CreatedAt, t.UpdatedAt,
+                s.Name as StatusName,
+                p.Name as PriorityName,
                 c.Name as CategoryName,
                 u1.Name as CreatedByName,
                 u2.Name as AssignedToName
@@ -67,7 +59,6 @@ const getAllTickets = async (req, res) => {
 
         let params = [];
 
-        // Filter tickets based on the user's role
         if (role === 'Employee') {
             query += ' WHERE t.CreatedByID = ?';
             params = [id];
@@ -86,19 +77,16 @@ const getAllTickets = async (req, res) => {
     }
 };
 
-// -----------------------------------------------
-// Get a single ticket by ID
-// Also returns all comments linked to this ticket
-// -----------------------------------------------
 const getTicketById = async (req, res) => {
     const { id } = req.params;
 
     try {
-        // Get the ticket with all related information
         const [tickets] = await db.query(`
-            SELECT t.*, 
-                s.Name as StatusName, 
-                p.Name as PriorityName, 
+            SELECT
+                t.ID, t.ReferenceNumber, t.Title, t.Description, t.StatusID, t.PriorityID, t.CategoryID,
+                t.CreatedByID, t.AssignedToID, t.CreatedAt, t.UpdatedAt,
+                s.Name as StatusName,
+                p.Name as PriorityName,
                 c.Name as CategoryName,
                 u1.Name as CreatedByName,
                 u2.Name as AssignedToName
@@ -115,49 +103,46 @@ const getTicketById = async (req, res) => {
             return res.status(404).json({ message: 'Ticket not found' });
         }
 
-        // Get all comments for this ticket ordered by oldest first
+        const ticket = tickets[0];
+
+        if (!canAccessTicket(ticket, req.user)) {
+            return res.status(403).json({ message: 'You do not have access to this ticket' });
+        }
+
         const [comments] = await db.query(`
-            SELECT tc.*, u.Name as UserName 
+            SELECT tc.ID, tc.Content, tc.CreatedAt, tc.UserID, u.Name as UserName
             FROM TicketComment tc
             JOIN \`User\` u ON tc.UserID = u.ID
             WHERE tc.TicketID = ?
             ORDER BY tc.CreatedAt ASC
         `, [id]);
 
-        // Return ticket details along with its comments
-        res.json({ ...tickets[0], comments });
+        res.json({ ...ticket, comments });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
     }
 };
 
-// -----------------------------------------------
-// Update a ticket
-// Rules:
-// - Closed tickets (StatusID = 5) cannot be modified
-// - Employees can only edit if ticket is still Open (StatusID = 1)
-// - Admin/Manager/Agent can update status and assignment
-// -----------------------------------------------
 const updateTicket = async (req, res) => {
     const { id } = req.params;
     const { role, id: userID } = req.user;
     const { title, description, categoryID, priorityID, statusID, assignedToID } = req.body;
 
     try {
-        // Check if ticket exists
         const [tickets] = await db.query('SELECT * FROM Ticket WHERE ID = ?', [id]);
         if (tickets.length === 0) return res.status(404).json({ message: 'Ticket not found' });
 
         const ticket = tickets[0];
 
-        // Closed tickets cannot be modified
         if (ticket.StatusID === 5) {
             return res.status(400).json({ message: 'Closed tickets cannot be modified' });
         }
 
         if (role === 'Employee') {
-            // Employees can only edit tickets that are still Open
+            if (ticket.CreatedByID !== userID) {
+                return res.status(403).json({ message: 'You can only edit tickets you created' });
+            }
             if (ticket.StatusID !== 1) {
                 return res.status(403).json({ message: 'You can only edit open tickets' });
             }
@@ -165,26 +150,60 @@ const updateTicket = async (req, res) => {
                 'UPDATE Ticket SET Title=?, Description=?, CategoryID=?, PriorityID=?, UpdatedAt=NOW() WHERE ID=?',
                 [title, description, categoryID, priorityID, id]
             );
-        } else {
-            const previousAgentID = ticket.AssignedToID;
+        } else if (role === 'IT Support Agent') {
+            if (ticket.AssignedToID !== userID) {
+                return res.status(403).json({ message: 'You can only update tickets assigned to you' });
+            }
+            const previousStatusID = ticket.StatusID;
             await db.query(
-                'UPDATE Ticket SET StatusID=?, AssignedToID=?, UpdatedAt=NOW() WHERE ID=?',
-                [statusID, assignedToID, id]
+                'UPDATE Ticket SET StatusID=?, UpdatedAt=NOW() WHERE ID=?',
+                [statusID, id]
             );
-
-            if (previousAgentID && previousAgentID !== parseInt(assignedToID)) {
+            if (statusID && parseInt(statusID) !== previousStatusID) {
+                const [statusRows] = await db.query('SELECT Name FROM `Status` WHERE ID IN (?, ?)', [previousStatusID, statusID]);
+                const oldName = statusRows.find(s => s.ID === previousStatusID)?.Name || previousStatusID;
+                const newName = statusRows.find(s => s.ID === parseInt(statusID))?.Name || statusID;
                 await db.query(
                     'INSERT INTO ActivityLog (Action, UserID, TicketID) VALUES (?, ?, ?)',
-                    [`Ticket reassigned from agent ID ${previousAgentID} to agent ID ${assignedToID}`, userID, id]
+                    [`Status changed from ${oldName} to ${newName}`, userID, id]
+                );
+                await db.query(
+                    'INSERT INTO Notification (Message, UserID, TicketID) VALUES (?, ?, ?)',
+                    [`Ticket ${ticket.ReferenceNumber} status changed to ${newName}`, ticket.CreatedByID, id]
+                );
+            }
+        } else {
+            const previousAgentID = ticket.AssignedToID;
+            const previousStatusID = ticket.StatusID;
+            await db.query(
+                'UPDATE Ticket SET StatusID=?, AssignedToID=?, UpdatedAt=NOW() WHERE ID=?',
+                [statusID, assignedToID || null, id]
+            );
+
+            if (assignedToID && previousAgentID !== parseInt(assignedToID)) {
+                await db.query(
+                    'INSERT INTO ActivityLog (Action, UserID, TicketID) VALUES (?, ?, ?)',
+                    [`Ticket reassigned from agent ID ${previousAgentID || 'none'} to agent ID ${assignedToID}`, userID, id]
+                );
+                await db.query(
+                    'INSERT INTO Notification (Message, UserID, TicketID) VALUES (?, ?, ?)',
+                    [`You have been assigned ticket ${ticket.ReferenceNumber}`, assignedToID, id]
+                );
+            }
+            if (statusID && parseInt(statusID) !== previousStatusID) {
+                const [statusRows] = await db.query('SELECT Name FROM `Status` WHERE ID IN (?, ?)', [previousStatusID, statusID]);
+                const oldName = statusRows.find(s => s.ID === previousStatusID)?.Name || previousStatusID;
+                const newName = statusRows.find(s => s.ID === parseInt(statusID))?.Name || statusID;
+                await db.query(
+                    'INSERT INTO ActivityLog (Action, UserID, TicketID) VALUES (?, ?, ?)',
+                    [`Status changed from ${oldName} to ${newName}`, userID, id]
+                );
+                await db.query(
+                    'INSERT INTO Notification (Message, UserID, TicketID) VALUES (?, ?, ?)',
+                    [`Ticket ${ticket.ReferenceNumber} status changed to ${newName}`, ticket.CreatedByID, id]
                 );
             }
         }
-
-        // Log the update action
-        await db.query(
-            'INSERT INTO ActivityLog (Action, UserID, TicketID) VALUES (?, ?, ?)',
-            [`Ticket updated by ${role}`, userID, id]
-        );
 
         res.json({ message: 'Ticket updated successfully' });
     } catch (error) {
@@ -193,28 +212,24 @@ const updateTicket = async (req, res) => {
     }
 };
 
-// -----------------------------------------------
-// Delete a ticket
-// Rules:
-// - Can only delete if ticket is unassigned
-// - Can only delete if ticket status is still Open (StatusID = 1)
-// -----------------------------------------------
 const deleteTicket = async (req, res) => {
     const { id } = req.params;
+    const { role, id: userID } = req.user;
 
     try {
-        // Check if ticket exists
-        const [tickets] = await db.query('SELECT * FROM Ticket WHERE ID = ?', [id]);
+        const [tickets] = await db.query('SELECT ID, CreatedByID, AssignedToID, StatusID FROM Ticket WHERE ID = ?', [id]);
         if (tickets.length === 0) return res.status(404).json({ message: 'Ticket not found' });
 
         const ticket = tickets[0];
 
-        // Cannot delete if ticket is already assigned to someone
+        if (role === 'Employee' && ticket.CreatedByID !== userID) {
+            return res.status(403).json({ message: 'You can only delete tickets you created' });
+        }
+
         if (ticket.AssignedToID !== null) {
             return res.status(400).json({ message: 'Cannot delete a ticket that is already assigned' });
         }
 
-        // Cannot delete if ticket is not in Open status
         if (ticket.StatusID !== 1) {
             return res.status(400).json({ message: 'Can only delete open unassigned tickets' });
         }
@@ -227,11 +242,6 @@ const deleteTicket = async (req, res) => {
     }
 };
 
-// -----------------------------------------------
-// Add a comment to a ticket
-// Works like a chat between assigned users and manager
-// Every comment is also logged in ActivityLog
-// -----------------------------------------------
 const addComment = async (req, res) => {
     const { id } = req.params;
     const { content } = req.body;
@@ -240,17 +250,30 @@ const addComment = async (req, res) => {
     if (!content) return res.status(400).json({ message: 'Comment cannot be empty' });
 
     try {
-        // Insert comment into TicketComment table
+        const [tickets] = await db.query('SELECT ID, ReferenceNumber, CreatedByID, AssignedToID FROM Ticket WHERE ID = ?', [id]);
+        if (tickets.length === 0) return res.status(404).json({ message: 'Ticket not found' });
+
+        const ticket = tickets[0];
+
+        if (!canAccessTicket(ticket, req.user)) {
+            return res.status(403).json({ message: 'You do not have access to this ticket' });
+        }
+
         await db.query(
             'INSERT INTO TicketComment (Content, TicketID, UserID) VALUES (?, ?, ?)',
             [content, id, userID]
         );
 
-        // Log the comment action
-        await db.query(
-            'INSERT INTO ActivityLog (Action, UserID, TicketID) VALUES (?, ?, ?)',
-            ['Comment added', userID, id]
-        );
+        const notifyTargets = [];
+        if (ticket.CreatedByID !== userID) notifyTargets.push(ticket.CreatedByID);
+        if (ticket.AssignedToID && ticket.AssignedToID !== userID) notifyTargets.push(ticket.AssignedToID);
+
+        for (const targetID of notifyTargets) {
+            await db.query(
+                'INSERT INTO Notification (Message, UserID, TicketID) VALUES (?, ?, ?)',
+                [`New comment on ticket ${ticket.ReferenceNumber}`, targetID, id]
+            );
+        }
 
         res.status(201).json({ message: 'Comment added' });
     } catch (error) {
@@ -259,18 +282,19 @@ const addComment = async (req, res) => {
     }
 };
 
-// -----------------------------------------------
-// Get ticket history (audit log)
-// Shows all actions taken on a ticket
-// For example: created, assigned, updated, commented
-// -----------------------------------------------
 const getTicketHistory = async (req, res) => {
     const { id } = req.params;
 
     try {
-        // Get all activity logs for this ticket with the user's name
+        const [tickets] = await db.query('SELECT ID, CreatedByID, AssignedToID FROM Ticket WHERE ID = ?', [id]);
+        if (tickets.length === 0) return res.status(404).json({ message: 'Ticket not found' });
+
+        if (!canAccessTicket(tickets[0], req.user)) {
+            return res.status(403).json({ message: 'You do not have access to this ticket' });
+        }
+
         const [history] = await db.query(`
-            SELECT al.*, u.Name as UserName 
+            SELECT al.ID, al.Action, al.Timestamp, al.UserID, u.Name as UserName
             FROM ActivityLog al
             JOIN \`User\` u ON al.UserID = u.ID
             WHERE al.TicketID = ?
@@ -284,15 +308,24 @@ const getTicketHistory = async (req, res) => {
     }
 };
 
-module.exports = { createTicket, getAllTickets, getTicketById, updateTicket, deleteTicket, addComment, getTicketHistory };
 const getTicketMeta = async (req, res) => {
     try {
-        const [categories] = await db.query('SELECT * FROM Category');
-        const [priorities] = await db.query('SELECT * FROM Priority');
+        const [categories] = await db.query('SELECT ID, Name FROM Category');
+        const [priorities] = await db.query('SELECT ID, Name FROM Priority');
         res.json({ categories, priorities });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
     }
 };
-module.exports = { createTicket, getAllTickets, getTicketById, updateTicket, deleteTicket, addComment, getTicketHistory, getTicketMeta };
+
+module.exports = {
+    createTicket,
+    getAllTickets,
+    getTicketById,
+    updateTicket,
+    deleteTicket,
+    addComment,
+    getTicketHistory,
+    getTicketMeta
+};

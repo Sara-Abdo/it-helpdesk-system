@@ -5,6 +5,7 @@ import TicketList from "./pages/TicketList";
 import CreateTicket from "./pages/CreateTicket";
 import TicketDetail from "./pages/TicketDetail";
 import ManageUsers from "./pages/ManageUsers";
+import Notifications from "./pages/Notifications";
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route path="/tickets/new" element={<Dashboard><CreateTicket /></Dashboard>} />
         <Route path="/tickets/:id" element={<Dashboard><TicketDetail /></Dashboard>} />
         <Route path="/users" element={<Dashboard><ManageUsers /></Dashboard>} />
+        <Route path="/notifications" element={<Dashboard><Notifications /></Dashboard>} />
       </Routes>
     </BrowserRouter>
   );

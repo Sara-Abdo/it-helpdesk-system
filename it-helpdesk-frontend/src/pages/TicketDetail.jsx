@@ -33,11 +33,14 @@ export default function TicketDetail() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [workLog, setWorkLog] = useState({ startTime: "", endTime: "", notes: "" });
+  const [attachments, setAttachments] = useState([]);
+  const [uploadFile, setUploadFile] = useState(null);
 
   useEffect(() => {
     fetchTicket();
     fetchHistory();
     fetchWorkLogs();
+    fetchAttachments();
     if (user.role === "Admin" || user.role === "Manager") {
       fetchAgents();
     }
@@ -63,6 +66,12 @@ export default function TicketDetail() {
     axios.get(`http://localhost:5000/api/worklogs/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setWorkLogs(res.data));
+  };
+
+  const fetchAttachments = () => {
+    axios.get(`http://localhost:5000/api/tickets/${id}/attachments`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then((res) => setAttachments(res.data));
   };
 
   const fetchAgents = () => {
@@ -120,6 +129,39 @@ export default function TicketDetail() {
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to log work");
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!uploadFile) {
+      setError("Choose a file first");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("file", uploadFile);
+    try {
+      await axios.post(`http://localhost:5000/api/tickets/${id}/attachments`,
+        formData,
+        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" } }
+      );
+      setUploadFile(null);
+      fetchAttachments();
+      fetchHistory();
+      setSuccess("File uploaded");
+      setTimeout(() => setSuccess(""), 2000);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to upload file");
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    try {
+      await axios.delete(`http://localhost:5000/api/tickets/attachments/${attachmentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchAttachments();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to remove attachment");
     }
   };
 
@@ -265,6 +307,39 @@ export default function TicketDetail() {
           </table>
         </div>
       )}
+
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <h3 className="font-bold mb-4">Attachments</h3>
+        {!isClosed && (
+          <div className="flex gap-2 mb-4">
+            <input
+              type="file"
+              className="flex-1 text-sm border border-gray-300 rounded px-3 py-2"
+              onChange={(e) => setUploadFile(e.target.files[0])}
+            />
+            <button onClick={handleUpload} className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 text-sm">
+              Upload
+            </button>
+          </div>
+        )}
+        {attachments.length === 0 ? (
+          <p className="text-gray-400 text-sm">No attachments yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {attachments.map((a) => (
+              <li key={a.ID} className="flex justify-between items-center text-sm border border-gray-100 rounded px-3 py-2">
+                <a href={"http://localhost:5000" + a.FilePath} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{a.FileName}</a>
+                <div className="flex items-center gap-3 text-gray-400">
+                  <span>{a.UploadedByName} — {new Date(a.UploadedAt).toLocaleString()}</span>
+                  <button onClick={() => handleDeleteAttachment(a.ID)} className="text-red-500 hover:underline">
+                    Remove
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h3 className="font-bold mb-4">Comments</h3>

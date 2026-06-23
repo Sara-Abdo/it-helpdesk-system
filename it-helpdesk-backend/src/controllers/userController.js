@@ -120,30 +120,59 @@ const deleteUser = async (req, res) => {
 
 const getDashboardStats = async (req, res) => {
     const { role, id } = req.user;
-    try {
-        let stats = {};
 
-        if (role === 'Admin' || role === 'Manager') {
-            const [[open]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE StatusID = 1');
-            const [[inProgress]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE StatusID = 2');
-            const [[resolved]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE StatusID = 4');
-            const [[total]] = await db.query('SELECT COUNT(*) as count FROM Ticket');
-            stats = { open: open.count, inProgress: inProgress.count, resolved: resolved.count, total: total.count };
-        } else if (role === 'IT Support Agent') {
-            const [[open]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE AssignedToID = ? AND StatusID = 1', [id]);
-            const [[inProgress]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE AssignedToID = ? AND StatusID = 2', [id]);
-            const [[resolved]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE AssignedToID = ? AND StatusID = 4', [id]);
-            const [[total]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE AssignedToID = ?', [id]);
-            stats = { open: open.count, inProgress: inProgress.count, resolved: resolved.count, total: total.count };
-        } else {
-            const [[open]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE CreatedByID = ? AND StatusID = 1', [id]);
-            const [[inProgress]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE CreatedByID = ? AND StatusID = 2', [id]);
-            const [[resolved]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE CreatedByID = ? AND StatusID = 4', [id]);
-            const [[total]] = await db.query('SELECT COUNT(*) as count FROM Ticket WHERE CreatedByID = ?', [id]);
-            stats = { open: open.count, inProgress: inProgress.count, resolved: resolved.count, total: total.count };
+    try {
+        let ticketFilter = '';
+        let filterParams = [];
+
+        if (role === 'IT Support Agent') {
+            ticketFilter = 'AND t.AssignedToID = ?';
+            filterParams = [id];
+        } else if (role === 'Employee') {
+            ticketFilter = 'AND t.CreatedByID = ?';
+            filterParams = [id];
         }
 
-        res.json(stats);
+        const [[open]] = await db.query(`SELECT COUNT(*) as count FROM Ticket t WHERE t.StatusID = 1 ${ticketFilter}`, filterParams);
+        const [[inProgress]] = await db.query(`SELECT COUNT(*) as count FROM Ticket t WHERE t.StatusID = 2 ${ticketFilter}`, filterParams);
+        const [[resolved]] = await db.query(`SELECT COUNT(*) as count FROM Ticket t WHERE t.StatusID = 4 ${ticketFilter}`, filterParams);
+        const [[total]] = await db.query(`SELECT COUNT(*) as count FROM Ticket t WHERE 1=1 ${ticketFilter}`, filterParams);
+
+        const [byStatus] = await db.query(`
+            SELECT s.Name as name, COUNT(t.ID) as count
+            FROM \`Status\` s
+            LEFT JOIN Ticket t ON t.StatusID = s.ID ${ticketFilter}
+            GROUP BY s.ID, s.Name
+            ORDER BY s.ID
+        `, filterParams);
+
+        const [byPriority] = await db.query(`
+            SELECT p.Name as name, COUNT(t.ID) as count
+            FROM Priority p
+            LEFT JOIN Ticket t ON t.PriorityID = p.ID ${ticketFilter}
+            GROUP BY p.ID, p.Name
+            ORDER BY p.ID
+        `, filterParams);
+
+        const [recentTickets] = await db.query(`
+            SELECT t.ID, t.ReferenceNumber, t.Title, t.CreatedAt, s.Name as StatusName, p.Name as PriorityName
+            FROM Ticket t
+            JOIN \`Status\` s ON t.StatusID = s.ID
+            JOIN Priority p ON t.PriorityID = p.ID
+            WHERE 1=1 ${ticketFilter}
+            ORDER BY t.CreatedAt DESC
+            LIMIT 5
+        `, filterParams);
+
+        res.json({
+            open: open.count,
+            inProgress: inProgress.count,
+            resolved: resolved.count,
+            total: total.count,
+            byStatus,
+            byPriority,
+            recentTickets
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error' });
