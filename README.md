@@ -25,6 +25,15 @@ Full Stack Web Development Internship Project — Integrated Digital Systems
 - Create new users with role assignment
 - Role-based access control across all pages
 
+  ## Week 4 Deliverables
+- Ticket assignment system with agent workload visibility
+- Ticket workflow logic (status transitions, reassignment tracking)
+- Work log system (IT agents log time spent per ticket)
+- Enhanced ticket history with timeline view
+- User deactivation (admin only)
+- User deletion with data integrity check
+- Role-based dashboard stats (each role sees their own data)
+
 ## Tech Stack
 - Frontend: React.js, Tailwind CSS
 - Backend: Node.js, Express
