@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import API_URL from "../config.js";
 import { useNavigate } from "react-router-dom";
 
 export default function CreateTicket() {
@@ -11,7 +12,7 @@ export default function CreateTicket() {
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/tickets/meta", {
+    axios.get("${API_URL}/api/tickets/meta", {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => {
       setCategories(res.data.categories);
@@ -23,7 +24,7 @@ export default function CreateTicket() {
     e.preventDefault();
     setError("");
     try {
-      await axios.post("http://localhost:5000/api/tickets", form, {
+      await axios.post("${API_URL}/api/tickets", form, {
         headers: { Authorization: `Bearer ${token}` },
       });
       navigate("/tickets");

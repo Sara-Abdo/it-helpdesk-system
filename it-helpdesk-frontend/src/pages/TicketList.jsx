@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import API_URL from "../config.js";
 import { useNavigate } from "react-router-dom";
 
 const priorityColors = {
@@ -25,7 +26,7 @@ export default function TicketList() {
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/tickets", {
+      .get("${API_URL}/api/tickets", {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
@@ -38,7 +39,7 @@ export default function TicketList() {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this ticket?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/tickets/${id}`, {
+      await axios.delete(`${API_URL}/api/tickets/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setTickets(tickets.filter((t) => t.ID !== id));

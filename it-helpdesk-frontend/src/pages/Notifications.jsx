@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import API_URL from "../config.js";
 
 export default function Notifications() {
   const navigate = useNavigate();
@@ -12,7 +13,7 @@ export default function Notifications() {
   }, []);
 
   const fetchNotifications = () => {
-    axios.get("http://localhost:5000/api/notifications", {
+    axios.get("${API_URL}/api/notifications", {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setNotifications(res.data)).catch(() => {});
   };
@@ -20,7 +21,7 @@ export default function Notifications() {
   const handleClick = async (n) => {
     if (!n.IsRead) {
       try {
-        await axios.put("http://localhost:5000/api/notifications/" + n.ID + "/read", {}, {
+        await axios.put("${API_URL}/api/notifications/" + n.ID + "/read", {}, {
           headers: { Authorization: `Bearer ${token}` },
         });
       } catch (err) {}
@@ -34,7 +35,7 @@ export default function Notifications() {
 
   const handleMarkAllRead = async () => {
     try {
-      await axios.put("http://localhost:5000/api/notifications/read-all", {}, {
+      await axios.put("${API_URL}/api/notifications/read-all", {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
       fetchNotifications();

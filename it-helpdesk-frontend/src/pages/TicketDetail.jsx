@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import API_URL from "../config.js";
 import { useParams, useNavigate } from "react-router-dom";
 
 const statusColors = {
@@ -47,7 +48,7 @@ export default function TicketDetail() {
   }, []);
 
   const fetchTicket = () => {
-    axios.get(`http://localhost:5000/api/tickets/${id}`, {
+    axios.get(`${API_URL}/api/tickets/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => {
       setTicket(res.data);
@@ -57,25 +58,25 @@ export default function TicketDetail() {
   };
 
   const fetchHistory = () => {
-    axios.get(`http://localhost:5000/api/tickets/${id}/history`, {
+    axios.get(`${API_URL}/api/tickets/${id}/history`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setHistory(res.data));
   };
 
   const fetchWorkLogs = () => {
-    axios.get(`http://localhost:5000/api/worklogs/${id}`, {
+    axios.get(`${API_URL}/api/worklogs/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setWorkLogs(res.data));
   };
 
   const fetchAttachments = () => {
-    axios.get(`http://localhost:5000/api/tickets/${id}/attachments`, {
+    axios.get(`${API_URL}/api/tickets/${id}/attachments`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setAttachments(res.data));
   };
 
   const fetchAgents = () => {
-    axios.get("http://localhost:5000/api/users/workload", {
+    axios.get("${API_URL}/api/users/workload", {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setAgents(res.data));
   };
@@ -83,7 +84,7 @@ export default function TicketDetail() {
   const handleAddComment = async () => {
     if (!comment.trim()) return;
     try {
-      await axios.post(`http://localhost:5000/api/tickets/${id}/comments`,
+      await axios.post(`${API_URL}/api/tickets/${id}/comments`,
         { content: comment },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -99,7 +100,7 @@ export default function TicketDetail() {
 
   const handleUpdate = async () => {
     try {
-      await axios.put(`http://localhost:5000/api/tickets/${id}`,
+      await axios.put(`${API_URL}/api/tickets/${id}`,
         { statusID, assignedToID: assignedTo },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -118,7 +119,7 @@ export default function TicketDetail() {
       return;
     }
     try {
-      const res = await axios.post(`http://localhost:5000/api/worklogs/${id}`,
+      const res = await axios.post(`${API_URL}/api/worklogs/${id}`,
         workLog,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -140,7 +141,7 @@ export default function TicketDetail() {
     const formData = new FormData();
     formData.append("file", uploadFile);
     try {
-      await axios.post(`http://localhost:5000/api/tickets/${id}/attachments`,
+      await axios.post(`${API_URL}/api/tickets/${id}/attachments`,
         formData,
         { headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" } }
       );
@@ -156,7 +157,7 @@ export default function TicketDetail() {
 
   const handleDeleteAttachment = async (attachmentId) => {
     try {
-      await axios.delete(`http://localhost:5000/api/tickets/attachments/${attachmentId}`, {
+      await axios.delete(`${API_URL}/api/tickets/attachments/${attachmentId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       fetchAttachments();
@@ -328,7 +329,7 @@ export default function TicketDetail() {
           <ul className="space-y-2">
             {attachments.map((a) => (
               <li key={a.ID} className="flex justify-between items-center text-sm border border-gray-100 rounded px-3 py-2">
-                <a href={"http://localhost:5000" + a.FilePath} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{a.FileName}</a>
+                <a href={"${API_URL}" + a.FilePath} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{a.FileName}</a>
                 <div className="flex items-center gap-3 text-gray-400">
                   <span>{a.UploadedByName} — {new Date(a.UploadedAt).toLocaleString()}</span>
                   <button onClick={() => handleDeleteAttachment(a.ID)} className="text-red-500 hover:underline">

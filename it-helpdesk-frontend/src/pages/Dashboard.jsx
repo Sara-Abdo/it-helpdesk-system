@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import API_URL from "../config.js";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 const STATUS_COLORS = {
@@ -54,14 +55,14 @@ export default function Dashboard({ children }) {
 
   const fetchStats = () => {
     const token = localStorage.getItem("token");
-    axios.get("http://localhost:5000/api/users/dashboard-stats", {
+    axios.get("${API_URL}/api/users/dashboard-stats", {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setStats(res.data)).catch((err) => console.error("dashboard-stats failed:", err));
   };
 
   const fetchUnreadCount = () => {
     const token = localStorage.getItem("token");
-    axios.get("http://localhost:5000/api/notifications/unread-count", {
+    axios.get("${API_URL}/api/notifications/unread-count", {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setUnreadCount(res.data.count)).catch(() => {});
   };
