@@ -8,7 +8,7 @@ const login = async (req, res) => {
 
     try {
         const [rows] = await db.query(
-            'SELECT u.ID, u.Name, u.Email, u.Password, u.RoleID, r.Name as RoleName FROM `User` u JOIN Role r ON u.RoleID = r.ID WHERE u.Email = ?',
+            'SELECT u.ID, u.Name, u.Email, u.Password, u.RoleID, u.IsActive, r.Name as RoleName FROM `User` u JOIN Role r ON u.RoleID = r.ID WHERE u.Email = ?',
             [email]
         );
 
@@ -17,6 +17,10 @@ const login = async (req, res) => {
         }
 
         const user = rows[0];
+
+        if (!user.IsActive) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
 
         const isMatch = await bcrypt.compare(password, user.Password);
         if (!isMatch) {
