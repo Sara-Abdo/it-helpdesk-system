@@ -49,3 +49,31 @@ Full Stack Web Development Internship Project — Integrated Digital Systems
 - Authentication: JWT
 
 ## Project Structure
+it-helpdesk/
+├── it-helpdesk-frontend/   (React app)
+└── it-helpdesk-backend/    (Node.js API)
+
+## Requirements
+- Node.js installed
+- MySQL installed and running locally
+- Database: ithelpdesk (import schema.sql to set up)
+
+## How to Run
+
+### Step 1 — Start the backend
+cd it-helpdesk-backend
+node server.js
+Backend runs on http://localhost:5000
+
+### Step 2 — Start the frontend
+cd it-helpdesk-frontend
+npm run dev
+Frontend runs on http://localhost:5173
+
+## User Roles
+- IT Support Agent — manages and resolves assigned tickets
+- Employee — creates and tracks their own tickets
+- Manager — oversees all tickets and agents
+
+## GitHub
+https://github.com/Sara-Abdo/it-helpdesk-system
