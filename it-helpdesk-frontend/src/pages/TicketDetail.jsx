@@ -25,6 +25,7 @@ export default function TicketDetail() {
   const user = JSON.parse(localStorage.getItem("user"));
 
   const [ticket, setTicket] = useState(null);
+  const [fetchError, setFetchError] = useState("");
   const [history, setHistory] = useState([]);
   const [workLogs, setWorkLogs] = useState([]);
   const [comment, setComment] = useState("");
@@ -54,31 +55,39 @@ export default function TicketDetail() {
       setTicket(res.data);
       setAssignedTo(res.data.AssignedToID || "");
       setStatusID(res.data.StatusID || "");
+    }).catch((err) => {
+      if (err.response?.status === 403) {
+        setFetchError("You no longer have access to this ticket. It may have been reassigned to someone else.");
+      } else if (err.response?.status === 404) {
+        setFetchError("This ticket no longer exists.");
+      } else {
+        setFetchError("Failed to load this ticket. Please try again.");
+      }
     });
   };
 
   const fetchHistory = () => {
     axios.get(`${API_URL}/api/tickets/${id}/history`, {
       headers: { Authorization: `Bearer ${token}` },
-    }).then((res) => setHistory(res.data));
+    }).then((res) => setHistory(res.data)).catch(() => {});
   };
 
   const fetchWorkLogs = () => {
     axios.get(`${API_URL}/api/worklogs/${id}`, {
       headers: { Authorization: `Bearer ${token}` },
-    }).then((res) => setWorkLogs(res.data));
+    }).then((res) => setWorkLogs(res.data)).catch(() => {});
   };
 
   const fetchAttachments = () => {
     axios.get(`${API_URL}/api/tickets/${id}/attachments`, {
       headers: { Authorization: `Bearer ${token}` },
-    }).then((res) => setAttachments(res.data));
+    }).then((res) => setAttachments(res.data)).catch(() => {});
   };
 
   const fetchAgents = () => {
     axios.get(`${API_URL}/api/users/workload`, {
       headers: { Authorization: `Bearer ${token}` },
-    }).then((res) => setAgents(res.data));
+    }).then((res) => setAgents(res.data)).catch(() => {});
   };
 
   const handleAddComment = async () => {
@@ -173,6 +182,19 @@ export default function TicketDetail() {
       setError(err.response?.data?.message || "Failed to remove attachment");
     }
   };
+
+  if (fetchError) {
+    return (
+      <div className="p-6 max-w-4xl mx-auto">
+        <button onClick={() => navigate("/tickets")} className="text-sm text-gray-500 hover:underline mb-4 block">
+          ← Back to tickets
+        </button>
+        <div className="bg-white rounded-lg shadow p-6 text-center">
+          <p className="text-gray-600">{fetchError}</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!ticket) return <div className="p-6">Loading...</div>;
 

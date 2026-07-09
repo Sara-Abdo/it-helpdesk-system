@@ -237,7 +237,12 @@ const deleteTicket = async (req, res) => {
             return res.status(400).json({ message: 'Can only delete open unassigned tickets' });
         }
 
+        await db.query('DELETE FROM ActivityLog WHERE TicketID = ?', [id]);
+        await db.query('DELETE FROM Notification WHERE TicketID = ?', [id]);
+        await db.query('DELETE FROM TicketComment WHERE TicketID = ?', [id]);
+        await db.query('DELETE FROM TicketAttachment WHERE TicketID = ?', [id]);
         await db.query('DELETE FROM Ticket WHERE ID = ?', [id]);
+
         res.json({ message: 'Ticket deleted successfully' });
     } catch (error) {
         console.error(error);
