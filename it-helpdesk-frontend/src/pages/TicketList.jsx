@@ -26,7 +26,7 @@ export default function TicketList() {
 
   useEffect(() => {
     axios
-      .get("${API_URL}/api/tickets", {
+      .get(`${API_URL}/api/tickets`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {

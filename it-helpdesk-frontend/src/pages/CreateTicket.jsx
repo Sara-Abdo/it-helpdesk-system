@@ -12,7 +12,7 @@ export default function CreateTicket() {
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    axios.get("${API_URL}/api/tickets/meta", {
+    axios.get(`${API_URL}/api/tickets/meta`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => {
       setCategories(res.data.categories);
@@ -24,7 +24,7 @@ export default function CreateTicket() {
     e.preventDefault();
     setError("");
     try {
-      await axios.post("${API_URL}/api/tickets", form, {
+      await axios.post(`${API_URL}/api/tickets`, form, {
         headers: { Authorization: `Bearer ${token}` },
       });
       navigate("/tickets");

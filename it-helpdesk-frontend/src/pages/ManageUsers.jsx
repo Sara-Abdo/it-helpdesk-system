@@ -20,13 +20,13 @@ export default function ManageUsers() {
   }, []);
 
   const fetchUsers = () => {
-    axios.get("${API_URL}/api/users", {
+    axios.get(`${API_URL}/api/users`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setUsers(res.data));
   };
 
   const fetchRoles = () => {
-    axios.get("${API_URL}/api/users/roles", {
+    axios.get(`${API_URL}/api/users/roles`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setRoles(res.data));
   };
@@ -36,7 +36,7 @@ export default function ManageUsers() {
     setError("");
     setSuccess("");
     try {
-      await axios.post("${API_URL}/api/users", form, {
+      await axios.post(`${API_URL}/api/users`, form, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setSuccess("User created successfully");

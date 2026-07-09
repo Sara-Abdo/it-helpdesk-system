@@ -155,9 +155,10 @@ const updateTicket = async (req, res) => {
                 return res.status(403).json({ message: 'You can only update tickets assigned to you' });
             }
             const previousStatusID = ticket.StatusID;
+            const finalStatusID = statusID || ticket.StatusID;
             await db.query(
                 'UPDATE Ticket SET StatusID=?, UpdatedAt=NOW() WHERE ID=?',
-                [statusID, id]
+                [finalStatusID, id]
             );
             if (statusID && parseInt(statusID) !== previousStatusID) {
                 const [statusRows] = await db.query('SELECT Name FROM `Status` WHERE ID IN (?, ?)', [previousStatusID, statusID]);
@@ -175,9 +176,11 @@ const updateTicket = async (req, res) => {
         } else {
             const previousAgentID = ticket.AssignedToID;
             const previousStatusID = ticket.StatusID;
+            const finalStatusID = (role === 'Admin' && statusID) ? statusID : ticket.StatusID;
+
             await db.query(
                 'UPDATE Ticket SET StatusID=?, AssignedToID=?, UpdatedAt=NOW() WHERE ID=?',
-                [statusID, assignedToID || null, id]
+                [finalStatusID, assignedToID || null, id]
             );
 
             if (assignedToID && previousAgentID !== parseInt(assignedToID)) {
@@ -190,7 +193,7 @@ const updateTicket = async (req, res) => {
                     [`You have been assigned ticket ${ticket.ReferenceNumber}`, assignedToID, id]
                 );
             }
-            if (statusID && parseInt(statusID) !== previousStatusID) {
+            if (role === 'Admin' && statusID && parseInt(statusID) !== previousStatusID) {
                 const [statusRows] = await db.query('SELECT Name FROM `Status` WHERE ID IN (?, ?)', [previousStatusID, statusID]);
                 const oldName = statusRows.find(s => s.ID === previousStatusID)?.Name || previousStatusID;
                 const newName = statusRows.find(s => s.ID === parseInt(statusID))?.Name || statusID;

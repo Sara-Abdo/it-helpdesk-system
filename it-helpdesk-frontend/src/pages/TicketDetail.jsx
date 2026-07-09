@@ -76,7 +76,7 @@ export default function TicketDetail() {
   };
 
   const fetchAgents = () => {
-    axios.get("${API_URL}/api/users/workload", {
+    axios.get(`${API_URL}/api/users/workload`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setAgents(res.data));
   };
@@ -100,8 +100,16 @@ export default function TicketDetail() {
 
   const handleUpdate = async () => {
     try {
+      let payload;
+      if (user.role === "Admin") {
+        payload = { statusID, assignedToID: assignedTo };
+      } else if (user.role === "IT Support Agent") {
+        payload = { statusID };
+      } else {
+        payload = { assignedToID: assignedTo };
+      }
       await axios.put(`${API_URL}/api/tickets/${id}`,
-        { statusID, assignedToID: assignedTo },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       fetchTicket();
@@ -204,7 +212,9 @@ export default function TicketDetail() {
 
       {(user.role === "Admin" || user.role === "Manager") && !isClosed && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h3 className="font-bold mb-4">Update Ticket</h3>
+          <h3 className="font-bold mb-4">
+            {user.role === "Admin" ? "Update Ticket" : "Reassign Ticket"}
+          </h3>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium mb-1">Assign To</label>
@@ -221,23 +231,45 @@ export default function TicketDetail() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Status</label>
-              <select
-                className="w-full border border-gray-300 rounded px-3 py-2"
-                value={statusID}
-                onChange={(e) => setStatusID(e.target.value)}
-              >
-                <option value="1">Open</option>
-                <option value="2">In Progress</option>
-                <option value="3">Pending</option>
-                <option value="4">Resolved</option>
-                <option value="5">Closed</option>
-              </select>
-            </div>
+            {user.role === "Admin" && (
+              <div>
+                <label className="block text-sm font-medium mb-1">Status</label>
+                <select
+                  className="w-full border border-gray-300 rounded px-3 py-2"
+                  value={statusID}
+                  onChange={(e) => setStatusID(e.target.value)}
+                >
+                  <option value="1">Open</option>
+                  <option value="2">In Progress</option>
+                  <option value="3">Pending</option>
+                  <option value="4">Resolved</option>
+                  <option value="5">Closed</option>
+                </select>
+              </div>
+            )}
           </div>
           <button onClick={handleUpdate} className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800">
             Save Changes
+          </button>
+        </div>
+      )}
+
+      {isAssignedAgent && !isClosed && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h3 className="font-bold mb-4">Update Status</h3>
+          <select
+            className="w-full border border-gray-300 rounded px-3 py-2 mb-3"
+            value={statusID}
+            onChange={(e) => setStatusID(e.target.value)}
+          >
+            <option value="1">Open</option>
+            <option value="2">In Progress</option>
+            <option value="3">Pending</option>
+            <option value="4">Resolved</option>
+            <option value="5">Closed</option>
+          </select>
+          <button onClick={handleUpdate} className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800">
+            Save Status
           </button>
         </div>
       )}
@@ -329,7 +361,7 @@ export default function TicketDetail() {
           <ul className="space-y-2">
             {attachments.map((a) => (
               <li key={a.ID} className="flex justify-between items-center text-sm border border-gray-100 rounded px-3 py-2">
-                <a href={"${API_URL}" + a.FilePath} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{a.FileName}</a>
+                <a href={`${API_URL}${a.FilePath}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">{a.FileName}</a>
                 <div className="flex items-center gap-3 text-gray-400">
                   <span>{a.UploadedByName} — {new Date(a.UploadedAt).toLocaleString()}</span>
                   <button onClick={() => handleDeleteAttachment(a.ID)} className="text-red-500 hover:underline">

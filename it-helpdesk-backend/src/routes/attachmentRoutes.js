@@ -11,7 +11,7 @@ if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-const allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.pdf', '.doc', '.docx', '.txt', '.xlsx', '.csv'];
+const allowedExtensions = ['.png', '.jpg', '.jpeg', '.pdf'];
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, uploadDir),

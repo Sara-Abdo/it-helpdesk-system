@@ -13,7 +13,7 @@ export default function Notifications() {
   }, []);
 
   const fetchNotifications = () => {
-    axios.get("${API_URL}/api/notifications", {
+    axios.get(`${API_URL}/api/notifications`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setNotifications(res.data)).catch(() => {});
   };
@@ -21,7 +21,7 @@ export default function Notifications() {
   const handleClick = async (n) => {
     if (!n.IsRead) {
       try {
-        await axios.put("${API_URL}/api/notifications/" + n.ID + "/read", {}, {
+        await axios.put(`${API_URL}/api/notifications/` + n.ID + "/read", {}, {
           headers: { Authorization: `Bearer ${token}` },
         });
       } catch (err) {}
@@ -35,7 +35,7 @@ export default function Notifications() {
 
   const handleMarkAllRead = async () => {
     try {
-      await axios.put("${API_URL}/api/notifications/read-all", {}, {
+      await axios.put(`${API_URL}/api/notifications/read-all`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
       fetchNotifications();

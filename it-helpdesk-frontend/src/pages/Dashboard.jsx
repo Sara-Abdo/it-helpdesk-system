@@ -55,14 +55,14 @@ export default function Dashboard({ children }) {
 
   const fetchStats = () => {
     const token = localStorage.getItem("token");
-    axios.get("${API_URL}/api/users/dashboard-stats", {
+    axios.get(`${API_URL}/api/users/dashboard-stats`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setStats(res.data)).catch((err) => console.error("dashboard-stats failed:", err));
   };
 
   const fetchUnreadCount = () => {
     const token = localStorage.getItem("token");
-    axios.get("${API_URL}/api/notifications/unread-count", {
+    axios.get(`${API_URL}/api/notifications/unread-count`, {
       headers: { Authorization: `Bearer ${token}` },
     }).then((res) => setUnreadCount(res.data.count)).catch(() => {});
   };
